@@ -1,0 +1,113 @@
+Methodology
+
+Method 3: A polar plot
+
+#####  Main idea:Divided time into various equal size of segments, then calculated the amplitude and phase inside each segment separately, and finally displayed in polar coordinates.
+
+```{r read and check data}
+library(ggplot2)
+library(ggforce)
+library(gganimate)
+library(av)
+library(tuneR)
+library(seewave)
+
+song <- chip_song
+# read the first 10 sec of the audio data
+av_audio_convert(song, short_audio, total_time = 10)
+# Get the mono audio data
+short_audio <- "short_audio.wav"
+audio <- readWave(short_audio)
+audio_data <- audio@left
+
+# Cut first 10 sec
+end_time = 10
+start_sample = 1
+end_sample = end_time * 44100
+audio_segment = audio_data[start_sample:end_sample]
+audio_segment <- audio_segment[1:(10 * sample_rate)]
+
+# Fourier transformations
+fft_data <- fft(audio_segment)
+
+# Calculate Amplitude and Phase
+amplitude <- Mod(fft_data)
+phase <- Arg(fft_data)
+
+summary(amplitude)
+summary(phase)
+```
+
+```{r Getting amplitude and phase}
+# Setting parameters
+n = length(audio_data)      # Time series length
+seg.length = 12250          # Length of each segment
+n.seg = n / seg.length      # Number of segments = 36 (square number)
+starts = seq(1, n, by = seg.length)  # Start idx for each segment
+ends = seq(seg.length, n, by = seg.length)  # End idx for each segment
+
+# Preparing a list for storing FFT results
+fft_results <- vector("list", n.seg)
+
+# Extract each amplitude and phase for each segment
+for (i in 1:n.seg) {
+  segment <- audio_data[starts[i]:ends[i]]
+  fft_segment <- fft(segment)
+  amplitude <- Mod(fft_segment)
+  phase <- Arg(fft_segment)
+  fft_results[[i]] <- data.frame(amplitude = amplitude, phase = phase)
+}
+```
+
+```{r store them and make video}
+# Prepare the framerate and output file
+framerate <- n.seg/10                        #n.seg/time
+animation_output <- "polar.mp4"
+
+# Set the number of segments
+seg_time <- seg.length/44100
+seg_sec <- 3.6                     #Segments per second 1000/seg_time
+
+## To make each second's segment more distinct, fill each second's segment with a different color, repeating the color once per second.
+
+# Generate colors for each second segment
+seg_color <- c("#F0E68C", "#ADD8E6", "#FFB6C1")
+colors <- rep(seg_color, length.out = n.seg)
+
+# Generate mp4
+av::av_capture_graphics({
+  for (i in 1:n.seg) {
+    # Store the current data into plot_data
+    angle <- fft_results[[i]]$phase
+    r <- fft_results[[i]]$amplitude
+    end_x <- r * cos(angle)
+    end_y <- r * sin(angle)
+    plot_data <- data.frame(x = 0, y = 0, r = r, end_x = end_x, end_y = end_y, segment = factor(i))
+
+## The radius of the circle represents the amplitude and the angle of the line to the x-axis represents the phase, where l(line) = r(circle). Both the circle and line are black lines, which are filled with different colors. The yellow dot in the center represents the center of the circle.
+    
+# plot function
+     p <- ggplot(plot_data, aes(x0 = x, y0 = y, r = r, fill = segment)) +
+      geom_circle(color = "black", alpha = 0.5) +
+      geom_segment(aes(x = x, y = y, xend = end_x, yend = end_y), color = "black") +
+      coord_fixed(ratio = 1) +
+      xlim(c(-max(r), max(r))) +
+      ylim(c(-max(r), max(r))) +
+      theme_minimal() + 
+      labs(title = paste("Time:", i / framerate, "s"), x = "Amplitude", y = "Amplitude") +
+      geom_point(aes(x = 0, y = 0), color = "red", size = 0.3) +
+      scale_fill_manual(values = colors[i])
+     
+    print(p)
+  }
+}, animation_output, framerate = framerate)
+
+
+## Finally, combine the video with the audio
+
+# Define the combined output file name
+combined_output <- "polar_audio.mp4"
+
+# Merge the combined video with the original mp3 file for full audio using ffmpeg
+system(paste("ffmpeg -y -i", animation_output, "-i", short_audio, "-c:v copy -c:a aac -strict experimental", combined_output))
+```

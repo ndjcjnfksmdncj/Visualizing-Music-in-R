@@ -1,0 +1,26 @@
+Music Selection:
+
+#### 1.1 Pop Music
+
+```{r}
+library(av)
+pop_song <- "Snooze.mp3"
+av_media_info(pop_song)
+```
+
+
+#### 1.2 Ancient Orchestral Music
+
+```{r}
+orchestral_song <- "Vltava.mp3"
+av_media_info(orchestral_song)
+```
+
+#### 1.3 Chip Music
+
+```{r}
+chip_song <- "Super_Mario.mp3"
+av_media_info(chip_song)
+```
+
+## Finally, chose the Chip Music.

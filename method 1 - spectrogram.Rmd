@@ -1,0 +1,128 @@
+Methodology
+
+Method 1: Spectrogram 
+
+#####  Main idea: Editing the fft.R source package of av package to achieve the log transformation of y-axis (frequency), and remove the 0 value of y-axis, and re-run the local av package.
+
+
+
+##### install the modified version of av package from local
+install.packages("/path/av", repos = NULL, type="source")
+
+Calculate the frequency data and plot the spectrogram:
+
+```{r plot_spectrogram}
+library(av)
+library(tuneR)
+song <- chip_song
+# Read first 10 sec of song
+pcm_data <- read_audio_bin(song, end_time = 10.0)
+plot(pcm_data, type = 'l')
+
+# Read 10 sec of data and make fft
+fft_data <- read_audio_fft(song, end_time = 10.0)
+
+frequency_values <- attr(fft_data, 'frequency')
+summary(frequency_values)
+dim(fft_data)
+
+# Plot the spectrogram
+plot(fft_data, ovlp = 0.6, window = hanning(1024))
+```
+
+Turn off dark mode to use the default R colors:
+
+```{r default color}
+plot(fft_data, dark = FALSE, ovlp = 0.6, window = hanning(1024))
+```
+
+### Spectrogram video
+
+Create a spectrogram video:
+
+```{r spectrogram_video}
+# Create new audio file with first 10 sec
+av_audio_convert(song, 'short.mp3', total_time = 10.0)
+av_spectrogram_video('short.mp3', output = 'spectrogram.mp4', width = 1280, height = 720, res = 144)
+```
+
+### Compare with seewave
+
+Compare spectrograms with the seewave package:
+
+```{r}
+library(tuneR)
+song <- readMP3("Super_Mario.mp3")
+print(song)
+```
+
+For mono channels:
+
+```{r seewave_mono}
+library(seewave)
+library(ggplot2)
+
+# Extract the mono channel
+song_mono <- mono(song)
+
+# Generating the spectrogram:
+ggspectro(song_mono, ovlp = 0.01, window = hanning(1024)) + 
+  geom_tile(aes(fill = amplitude)) + 
+  stat_contour() + 
+  coord_cartesian(xlim = c(0, 10)) # Generates spectrogram for first 10 seconds only
+```
+
+For comparing stereo channel side by side:
+
+```{r stereo_left}
+# exract the left channel of the stereo type and make FFT
+audio_left <- song@left
+left_wave <- Wave(audio_left, samp.rate = song@samp.rate, bit = song@bit)
+
+ggspectro(left_wave, ovlp = 0.01, window = hanning(1024)) + 
+  geom_tile(aes(fill = amplitude)) + 
+  stat_contour() + 
+  coord_cartesian(xlim = c(0, 10)) # Generates spectrogram for first 10 seconds only
+```
+
+```{r stereo_right}
+# exract the right channel of the stereo type and make FFT
+audio_right <- audio@right
+right_channel <- Wave(audio_right, samp.rate = song@samp.rate, bit = song@bit)
+
+ggspectro(right_channel, ovlp = 0.01, window = hanning(512)) + 
+  geom_tile(aes(fill = amplitude)) + 
+  stat_contour() + 
+  coord_cartesian(xlim = c(0, 10)) # Generates spectrogram for first 10 seconds only
+```
+
+### For av package:
+
+```{r av_mono}
+song_mono <- mono(song)
+savewav(song_mono, f = song@samp.rate, filename = 'seewave_mono.wav')
+
+# Read 10 sec of data and make fft
+fft_data_mono <- read_audio_fft('seewave_mono.wav', end_time = 10.0)
+plot(fft_data_mono, ovlp = 0.6, window = hanning(1024))
+```
+
+```{r av_left}
+audio_left <- song@left
+song_left <- Wave(audio_left, samp.rate = song@samp.rate, bit = song@bit)
+savewav(song_left, filename = 'seewave_left.wav')
+
+# Read 10 sec of data and make fft
+fft_data_left <- read_audio_fft('seewave_left.wav', end_time = 10.0)
+plot(fft_data_left, ovlp = 0.6, window = hanning(1024))
+```
+
+```{r av_right}
+audio_right <- song@right
+song_right <- Wave(audio_right, samp.rate = song@samp.rate, bit = song@bit)
+savewav(song_right, filename = 'seewave_right.wav')
+
+# Read 10 sec of data and directly transform to frequency
+fft_data_right <- read_audio_fft('seewave_right.wav', end_time = 10.0)
+plot(fft_data_right, ovlp = 0.6, window = hanning(1024))
+```

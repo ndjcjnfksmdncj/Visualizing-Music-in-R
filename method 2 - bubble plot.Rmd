@@ -1,0 +1,90 @@
+Methodology
+
+Method 2: Bubble plot
+
+#####  Main idea: Calculate the sum of squares of the amplitudes over time in each frequency range according to the different frequency ranges, each of which is represented by a different colored bubble.
+
+
+```{r define ranges and labels}
+library(tuneR)
+library(ggplot2)
+library(gganimate)
+
+song <- chip_song
+# read the first 10 sec of the audio data
+av_audio_convert(song, short_audio, total_time = 10)
+audio <- readWave("short_audio.wav")
+audio_data <- audio@left
+sample_rate <- audio@samp.rate
+
+## Splitting the audio into multiple shorter time segments and analyzing the spectrum of each time segment separately gives a better view of the variation between frequency and time. 
+
+# Setting 0.1 seconds as a time period
+seg <- 0.1 * sample_rate
+
+# Split time range and mid point
+freq_ranges <- seq(1, sample_rate/2, length.out=11)
+labels <- sapply(1:10, function(i) paste0(freq_ranges[i], "-", freq_ranges[i+1], "Hz"))
+mid <- (freq_ranges[-length(freq_ranges)] + freq_ranges[-1]) / 2
+
+# Create a dataframe to store
+plot_data <- data.frame(time = numeric(), freq_range = factor(), amplitude = numeric(), x = numeric(), y = numeric())
+```
+
+```{r sum squared amplitudes}
+starts = seq(1, length(audio_data), by = seg)
+ends = starts + seg - 1
+
+# Loop for every time period
+for (i in 1:length(starts)) {
+    data <- audio_data[starts[i]:ends[i]]
+    fft_result <- fft(data)
+    amplitude <- Mod(fft_result)
+    frequency_val <- seq(0, sample_rate/2, length.out = length(data))
+
+    # calculate the sum of squared amplitude
+    for (j in 1:10) {
+        idx <- which(frequency_val >= freq_ranges[j] 
+                     & frequency_val < freq_ranges[j + 1])
+        amplitude_sum <- sum((amplitude[idx])^2)
+        
+        plot_data <- rbind(plot_data, data.frame(time = starts[i] / sample_rate, freq_range = labels[j], amplitude = amplitude_sum, x = mid[j], y = mid[j]))
+    }
+}
+```
+
+
+```{r plot}
+# Plotting the animation
+p <- ggplot(plot_data, aes(x = x, y = y, size = amplitude)) + 
+  geom_point(aes(color = factor(freq_range), size = amplitude), alpha=0.5) +
+  coord_fixed(ratio = 1) +
+  theme_minimal() +
+  labs(title = "Time:{frame_time}", x = "Frequency (Hz)", y = "Frequency (Hz)") + 
+  theme(legend.position="none") +
+  scale_color_manual(values = rainbow(10)) +
+  scale_size_continuous(range = c(10, 20)) +  
+  transition_time(time)
+```
+
+```{r ffmpeg}
+# Define the combined output file name
+animation_output <- "bubble.mp4"
+anim_save(animation_output, animate(p, renderer = ffmpeg_renderer(format = "mp4")))
+
+# ---- Merge Animation and Audio ----
+
+# Define the combined output file name
+combined_output <- "bubble_audio.mp4"
+
+# Merge the animation with the short audio
+av::av_encode_video(
+  input = animation_output,
+  output = combined_output,
+  audio = short_audio
+)
+
+# Merge the combined video with the original mp3 file for full audio
+system(paste("ffmpeg -y -i", animation_output, "-i", short_audio, "-c:v copy -c:a aac -strict experimental", combined_output))
+
+```
