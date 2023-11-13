@@ -12,6 +12,7 @@ library(av)
 library(tuneR)
 library(seewave)
 
+chip_song <- "Super_Mario.mp3"
 song <- chip_song
 # read the first 10 sec of the audio data
 av_audio_convert(song, short_audio, total_time = 10)
