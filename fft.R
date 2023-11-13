@@ -116,7 +116,7 @@ plot.av_fft <- function(x, y, dark = TRUE, legend = TRUE, keep.par = FALSE, useR
   par(mar=c(5, 5, 3, 3), mex=0.6)
   
   # Remove the 0th frequency and corresponding z-axis
-  image(attr(x, 'time')[-1], log(attr(x, 'frequency'))[-1], t(x)[-1,-1],
+  image(attr(x, 'time'), log(attr(x, 'frequency'))[-1], t(x)[ ,-1],
         xlab = 'TIME', ylab = 'LOG_FREQUENCY (HZ)', col = col, useRaster = useRaster, axes = FALSE)
   
   # Add x-axis
