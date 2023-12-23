@@ -19,8 +19,6 @@ audio <- readWave("short_audio.wav")
 audio_data <- audio@left
 sample_rate <- audio@samp.rate
 
-## Splitting the audio into multiple shorter time segments and analyzing the spectrum of each time segment separately gives a better view of the variation between frequency and time. 
-
 # Setting 0.1 seconds as a time period
 seg <- 0.1 * sample_rate
 
